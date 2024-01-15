@@ -15,7 +15,7 @@ release = '0.0'
 version = '0.0.2'
 
 
-import sphinxcontrib.napoleon
+#import sphinxcontrib.napoleon
 # -- General configuration
 
 extensions = [

@@ -1,5 +1,6 @@
 """
 Metrics Module for Medical Machine Learning Evaluation
+======================================================
 
 This module provides specialized metrics for evaluating machine learning models in medical contexts. 
 It includes functions for calculating the Number Needed to Treat (NNT) versus the number of patients treated 

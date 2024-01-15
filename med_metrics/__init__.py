@@ -16,11 +16,12 @@ from .metrics import *
 from .curves import *
 from .compatibility_metrics import backwards_trust_compatibility, backwards_error_compatibility, rank_based_compatibility
 from .bootstrap import *
-'''
+
 __all__ = [
     'metrics',
     'curves',
     'compatibility_metrics',
     'bootstrap'
 ]
+'''
 

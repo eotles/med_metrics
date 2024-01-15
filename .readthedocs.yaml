@@ -8,18 +8,21 @@ version: 2
 sphinx:
   configuration: docs/conf.py
 
-# Set the OS, Python version and other tools you might need
+# Specify the build environment
 build:
-    os: ubuntu-22.04
-    tools:
-        python: "3.7"
-        
+  os: ubuntu-22.04
+  tools:
+    python: "3.7"
+
+# Define the Python version and requirements
 python:
   version: 3.7
   install:
     - requirements: docs/requirements.txt
 
+# Specify the formats for the documentation build
 formats:
   - htmlzip
   - pdf
   - epub
+

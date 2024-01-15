@@ -475,3 +475,8 @@ def plot_bootstrap_curve(bootstrapped_results, metric_func_name, curve_func_name
         plt.show()
         
     return fig, ax
+    
+    
+__all__ = [
+    'bootstrap_evaluation'
+]

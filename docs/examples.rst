@@ -11,7 +11,7 @@ Generate Data Setup
 This generates the data that will be used in all the examples.
 
 .. code-block:: python
-    
+
     import numpy as np
     n = 1000
     rng = np.random.default_rng(41)
@@ -29,6 +29,7 @@ NNT vs. Number Treated Example
 This example shows how to calculate and visualize the Number Needed to Treat (NNT) versus the number of patients treated using `NNTvsTreated_curve` and `average_NNTvsTreated` from the `curves` and `metrics` modules.
 
 .. code-block:: python
+
     # Setup and imports
     from med_metrics.curves import NNTvsTreated_curve
     from med_metrics.metrics import average_NNTvsTreated
@@ -108,6 +109,7 @@ Model Comparison via Bootstrapping
 This example demonstrates how to compare multiple models using bootstrapping techniques provided by Med Metrics.
 
 .. code-block:: python
+
     # Set up
     metric_funcs = {'roc_auc_score': roc_auc_score,
                 'mean_NNTvsTreated': average_NNTvsTreated,

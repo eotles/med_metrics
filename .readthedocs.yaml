@@ -11,8 +11,6 @@ sphinx:
 # Specify the build environment
 build:
   os: ubuntu-22.04
-  tools:
-    python: "3.7"
 
 # Define the Python version and requirements
 python:
@@ -25,4 +23,5 @@ formats:
   - htmlzip
   - pdf
   - epub
+
 

@@ -9,8 +9,8 @@ and utility functions to support these tasks.
 
 """
 
-Author: Erkin Ötleş
-Email: hi@eotles.com
+# Author: Erkin Ötleş
+# Email: hi@eotles.com
 
 from .metrics import *
 from .curves import *

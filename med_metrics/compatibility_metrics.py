@@ -1,6 +1,6 @@
 """
-Compatibility Metrics Module for Medical Machine Learning Evaluation
-====================================================================
+Compatibility Metrics Module
+============================
 
 This module contains functions to evaluate the compatibility of predictions made by machine learning models
 in medical contexts. It focuses on assessing how predictions change when models are updated or when different
@@ -10,10 +10,9 @@ Functions:
 - backwards_trust_compatibility: Evaluates trust compatibility between two model predictions, focusing on cases where the first model's predictions are correct.
 - backwards_error_compatibility: Assesses error compatibility between two model predictions, focusing on instances where the first model's predictions are incorrect.
 - rank_based_compatibility: Measures the consistency of ranking between original and updated model scores based on true labels.
-
-Author: Erkin Ötleş
-Email: hi@eotles.com
 """
+
+# Author: Erkin Ötleş, hi@eotles.com
 
 import numpy as np
 from .utils import check_consistent_length

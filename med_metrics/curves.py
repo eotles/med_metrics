@@ -1,12 +1,13 @@
 """
+Curves Module
+=============
 
 Functions:
 - NNTvsTreated_curve: Calculates NNT vs. treated per classification threshold.
 - net_benefit_curve: Calculates the net benefit across a range of thresholds.
-
-Author: Erkin Ötleş
-Email: hi@eotles.com
 """
+
+# Author: Erkin Ötleş, hi@eotles.com
 
 import numpy as np
 from .utils import _cm_curve, _check_min_max

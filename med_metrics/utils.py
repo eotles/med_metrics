@@ -1,5 +1,6 @@
 """
-Utility Functions for Medical Machine Learning Metrics
+Utility Functions
+=================
 
 This module contains utility functions used in the calculation of machine learning metrics 
 for medical applications. It includes functions for generating binary classification curves, 
@@ -13,10 +14,9 @@ Functions:
 
 Some of this code is adapted from the scikit-learn project: 
 https://github.com/scikit-learn/scikit-learn/blob/3f89022fa04d293152f1d32fbc2a5bdaaf2df364/sklearn/metrics/_ranking.py
-
-Author: Erkin Ötleş
-Email: hi@eotles.com
 """
+
+# Author: Erkin Ötleş, hi@eotles.com
 
 import numpy as np
 import types

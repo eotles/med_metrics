@@ -1,5 +1,6 @@
 """
-Bootstrap Evaluation and Plotting Module
+Bootstrap Evaluation Module
+========================================
 
 This module contains functions for performing bootstrap evaluations of machine learning models in medical applications. 
 It includes functionalities to analyze bootstrapped results, calculate confidence intervals, and plot the results of these analyses.
@@ -7,10 +8,9 @@ The module focuses on providing tools for assessing model performance through bo
 
 Some of this code is adapted from the scipy project: 
 https://github.com/scipy/scipy/blob/v1.11.4/scipy/stats/_resampling.py
-
-Author: Erkin Ötleş
-Email: hi@eotles.com
 """
+
+# Author: Erkin Ötleş, hi@eotles.com
 
 from .utils import _get_funcs_dict, _get_funcs_kwargs_dict, _validate_ys, _lighten_color
 import copy

@@ -1,6 +1,6 @@
 """
-Metrics Module for Medical Machine Learning Evaluation
-======================================================
+Metrics Module
+==============
 
 This module provides specialized metrics for evaluating machine learning models in medical contexts. 
 It includes functions for calculating the Number Needed to Treat (NNT) versus the number of patients treated 
@@ -11,10 +11,9 @@ Functions:
 - average_NNTvsTreated: Computes the average height of the NNT vs. treated curve.
 - net_benefit: Computes the net benefit of a binary classifier at a given threshold.
 - average_net_benefit: Determines the average net benefit over all thresholds.
-
-Author: Erkin Ötleş
-Email: hi@eotles.com
 """
+
+# Author: Erkin Ötleş, hi@eotles.com
 
 import numpy as np
 from sklearn.metrics import confusion_matrix

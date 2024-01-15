@@ -6,9 +6,10 @@ setup(
     packages=find_packages(),
     install_requires=[
         'numpy',
-        'scikit-learn'
+        'scikit-learn',
+        'matplotlib'
     ],
-    author='Your Name',
+    author='Erkin Ötleş',
     author_email='hi@eotles.com',
     description='Custom ML metrics for medical applications'
 )

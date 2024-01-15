@@ -21,7 +21,6 @@
 
 To install med_metrics, run the following command:
 ``` bash
-Copy code
 pip install med-metrics
 ```
 

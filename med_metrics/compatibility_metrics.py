@@ -1,5 +1,6 @@
 """
 Compatibility Metrics Module for Medical Machine Learning Evaluation
+====================================================================
 
 This module contains functions to evaluate the compatibility of predictions made by machine learning models
 in medical contexts. It focuses on assessing how predictions change when models are updated or when different

@@ -10,6 +10,7 @@ Author: Erkin Ötleş
 Email: hi@eotles.com
 """
 
-from .metrics import * 
+from .metrics import *
+from .curves import * 
 from .compatibility_metrics import *
 from .bootstrap import *

@@ -11,7 +11,7 @@ and utility functions to support these tasks.
 
 # Author: Erkin Ötleş
 # Email: hi@eotles.com
-
+'''
 from .metrics import *
 from .curves import *
 from .compatibility_metrics import backwards_trust_compatibility, backwards_error_compatibility, rank_based_compatibility
@@ -23,3 +23,4 @@ __all__ = [
     'compatibility_metrics',
     'bootstrap'
 ]
+'''

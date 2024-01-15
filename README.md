@@ -98,7 +98,7 @@ model_1  0.818 (0.794, 0.844)  3.539 (3.366, 3.698)
 ```
 
 Plot: NNT vs. Number Treated
-![NNT vs. Number Treated Plot](https://github.com/yourusername/yourrepository/blob/main/path/to/image.png?raw=true)
+![NNT vs. Number Treated Plot](docs/images/example_nnt_vs_treated_plot.png)
 
 
 

@@ -382,68 +382,41 @@ def _check_min_max(min_parameter_value, min_parameter_name,
 
 def _validate_ys(y_true, y_scores):
     """
-    Validate and process ``y_true`` and ``y_scores`` to ensure they are in a
-    consistent dictionary format.
+    Validate and process y_true and y_scores to ensure they are in the correct format.
 
     Parameters
     ----------
-    y_true : array-like or dict of array-like
-        True labels. A single array-like will be treated as a single outcome
-        named ``"outcome_0"``. A dictionary allows evaluating multiple
-        outcomes simultaneously.
+    y_true : array-like
+        True labels.
     y_scores : numpy array, list, or dict
-        Predicted scores; can be a single array, a list of arrays, or a
-        dictionary of arrays. Each array must be the same length as the
-        entries in ``y_true``.
+        Predicted scores; can be a single array, a list of arrays, or a dictionary of arrays.
 
     Returns
     -------
     tuple
-        ``(y_true_dict, y_scores_dict)`` where ``y_true_dict`` maps outcome
-        names to ``numpy.ndarray`` values and ``y_scores_dict`` maps score names
-        to ``numpy.ndarray`` values.
+        y_true and y_scores formatted as numpy arrays.
 
     Raises
     ------
     ValueError
-        If ``y_scores`` is not a numpy array, a list, or a dictionary.
-        If lengths of ``y_scores`` elements do not match the length of the
-        outcome arrays in ``y_true``.
+        If y_scores is not a numpy array, a list, or a dictionary.
+        If lengths of y_scores elements do not match the length of y_true.
 
     Examples
     --------
     >>> y_true = [0, 1, 0]
     >>> y_scores = [0.2, 0.6, 0.1]
-    >>> y_true_dict, y_scores_dict = _validate_ys(y_true, y_scores)
+    >>> y_true, y_scores = _validate_ys(y_true, y_scores)
     """
-
-    if isinstance(y_true, dict):
-        y_true_dict = {key: np.asarray(value) for key, value in y_true.items()}
-    else:
-        y_true_array = np.asarray(y_true)
-        y_true_dict = {"outcome_0": y_true_array}
-
-    # Determine reference length for validation
-    if len(y_true_dict) == 0:
-        raise ValueError("y_true must contain at least one outcome.")
-
-    first_outcome = next(iter(y_true_dict.values()))
-    n_samples = len(first_outcome)
-
-    # Ensure all outcome arrays have the same length
-    for outcome_name, outcome_values in y_true_dict.items():
-        if len(outcome_values) != n_samples:
-            raise ValueError(
-                "All outcomes in y_true must have the same number of samples. "
-                f"Outcome '{outcome_name}' has length {len(outcome_values)}"
-                f" but expected {n_samples}."
-            )
+    
+    # Convert y_true to a numpy array if it's not already
+    y_true = np.asarray(y_true)
 
     # Process y_scores to ensure it's a dictionary of numpy arrays
     if isinstance(y_scores, np.ndarray):
-        y_scores = {"model_0": y_scores}
+        y_scores = {'model_0': y_scores}
     elif isinstance(y_scores, list):
-        y_scores = {"model_{}".format(i): np.asarray(score) for i, score in enumerate(y_scores)}
+        y_scores = {'model_{}'.format(i): np.asarray(score) for i, score in enumerate(y_scores)}
     elif isinstance(y_scores, dict):
         y_scores = {key: np.asarray(score) for key, score in y_scores.items()}
     else:
@@ -451,12 +424,10 @@ def _validate_ys(y_true, y_scores):
 
     # Validate that all elements in y_scores are numpy arrays and have the same length as y_true
     for key, score in y_scores.items():
-        if len(score) != n_samples:
-            raise ValueError(
-                f"Length of score array with key '{key}' does not match the number of samples ({n_samples})."
-            )
+        if len(score) != len(y_true):
+            raise ValueError(f"Length of score array with key '{key}' does not match length of y_true.")
 
-    return y_true_dict, y_scores
+    return y_true, y_scores
     
     
 def _lighten_color(color, amount=0.5):

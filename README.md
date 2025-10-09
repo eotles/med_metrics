@@ -24,6 +24,33 @@ To install med_metrics, run the following command:
 pip install med-metrics
 ```
 
+### Testing pre-release changes locally
+
+If you would like to try out changes that have not yet been published to
+PyPI, clone this repository and install the package in editable mode. This
+allows Python to use the source in your working tree instead of the latest
+release:
+
+```bash
+git clone https://github.com/eotles/med_metrics.git
+cd med_metrics
+python -m venv .venv
+source .venv/bin/activate  # On Windows use `.venv\Scripts\activate`
+pip install -e .[dev]
+```
+
+The `[dev]` extra installs the dependencies that are required to run the
+package test suite. After installing, run the tests with:
+
+```bash
+pytest
+```
+
+When the virtual environment is activated, any script or notebook that
+imports `med_metrics` will use the version from your local checkout. You can
+deactivate the environment at any time with `deactivate` to return to using
+the PyPI release.
+
 ## Dependencies
 
 med_metrics requires the following libraries:

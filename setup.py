@@ -19,4 +19,9 @@ setup(
         'scikit-learn',
         'matplotlib'
     ],
+    extras_require={
+        'dev': [
+            'pytest>=7.0',
+        ],
+    },
 )

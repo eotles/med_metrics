@@ -11,7 +11,7 @@ Email: hi@eotles.com
 """
 
 import unittest
-from med_metrics.compatibility_metrics import *
+from med_metrics.compatiblity_metrics import *
 
 class test_bTc_score(unittest.TestCase):
     

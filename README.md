@@ -111,6 +111,83 @@ Plot: NNT vs. Number Treated
 
 Contributions to med_metrics are welcome! Please read our contributing guidelines for more information on how to submit pull requests, report issues, or suggest enhancements.
 
+
+### Development environment (Docker)
+
+This repo includes a ready-to-run JupyterLab dev environment using Docker.
+It installs runtime dependencies with mamba (Conda) and automatically trusts notebooks at startup.
+
+#### Prereqs
+Docker Desktop (or Docker Engine)
+Docker Compose v2 (docker compose ...)
+
+#### One-time build & launch
+
+```
+# from the repo root
+
+docker compose up --build
+```
+
+JupyterLab will start and print a URL with a token, e.g.:
+```
+http://127.0.0.1:8888/lab?token=XXXXXXXXXXXXXXXX
+```
+Open that URL in your browser.
+(On macOS you can also: open 'http://127.0.0.1:8888/lab?token=...')
+
+What this does
+* Builds from jupyter/base-notebook:python-3.11.
+* Installs Python deps from requirements.txt using mamba.
+* Mounts the repo to /work (your edits persist on the host).
+* Runs /usr/local/bin/start-jupyter which:
+    * trusts all notebooks under notebooks/,
+    * starts JupyterLab on port 8888,
+    * serves the repo root (/work) so you can edit code and notebooks together.
+    
+#### Day-to-day use (no rebuild needed)
+```
+docker compose up
+```
+* Code edits in med_metrics/ are live (bind mount).
+* Rebuild only when changing requirements.txt or the Dockerfile.
+
+#### Changing dependencies
+* Edit requirements.txt.
+* Rebuild:
+```
+docker compose up --build
+```
+
+### Verify you’re using the local package
+In a notebook:
+```
+import med_metrics, sys
+print("med_metrics from:", med_metrics.__file__)
+print("PYTHONPATH head:", sys.path[:3])
+```
+You should see a path under ```/work/med_metrics/...``` confirming imports come from your local source tree (```ENV PYTHONPATH=/work``` is set in the Dockerfile).
+
+#### Stopping / cleanup
+* Stop: ```Ctrl+C``` in the terminal running compose.
+* Optional cleanup:
+```
+docker compose down
+# or to remove local image & volumes:
+docker compose down --rmi local -v --remove-orphans
+```
+
+#### Troubleshooting
+Shell rejects the URL: Some shells interpret ?token=.... Copy/paste the URL into the browser, or quote it:
+```open 'http://127.0.0.1:8888/lab?token=...'```
+Port busy: Change the published port in docker-compose.yml:
+```
+ports:
+  - "8899:8888"
+```
+Then open ```http://127.0.0.1:8899/lab?token=...```
+New packages not found: You likely changed ```requirements.txt``` but didn’t rebuild—run ```docker compose up --build```.
+
 ## License
 
 med_metrics is released under a MIT License.

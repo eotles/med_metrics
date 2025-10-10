@@ -1,0 +1,9 @@
+.git
+.jupyter
+.ipynb_checkpoints
+__pycache__/
+build/
+dist/
+*.egg-info/
+*.pyc
+*.pyo

@@ -3,15 +3,15 @@ FROM jupyter/base-notebook:python-3.11
 WORKDIR /work
 COPY requirements.txt .
 
-# use conda to install packages into the running jupyter env
-RUN mamba install -y --quiet -c conda-forge \
-    --file requirements.txt || \
+RUN mamba install -y --quiet -c conda-forge --file requirements.txt || \
     mamba install -y -c conda-forge numpy pandas matplotlib scikit-learn seaborn tqdm jupyterlab
 
-# add startup script to trust notebooks
+# Ensure correct perms and LF endings for the startup script
 USER root
-COPY start-jupyter.sh /usr/local/bin/start-jupyter
-RUN chmod +x /usr/local/bin/start-jupyter
+COPY --chmod=0755 start-jupyter.sh /usr/local/bin/start-jupyter
+# Fallback for older Docker engines that ignore --chmod
+RUN chmod 0755 /usr/local/bin/start-jupyter && \
+    sed -i 's/\r$//' /usr/local/bin/start-jupyter
 USER ${NB_UID}
 
 ENV PYTHONPATH=/work

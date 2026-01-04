@@ -20,64 +20,217 @@ from sklearn.metrics import confusion_matrix
 from .curves import NNTvsTreated_curve, net_benefit_curve
 
 
-def average_NNTvsTreated(y_true, y_score, rho, pos_label=None, sample_weight=None,
-                         min_treated=None, max_treated=None):
+def average_NNTvsTreated(
+    y_true,
+    y_score,
+    rho,
+    pos_label=None,
+    sample_weight=None,
+    min_treated=None,
+    max_treated=None,
+    *,
+    policy: str = "finite",    # {"finite", "propagate", "clip"}
+    epsilon: float = 1e-12      # used only if policy == "clip"
+):
     """
-    Computes the average height of the Number Needed to Treat (NNT) vs. treated curve for a binary classifier.
+    Compute the average height of the NNT-vs-treated curve.
 
-    This function calculates the NNT at various thresholds and determines the
-    average value over the specified range of treated patients. The average NNT
-    provides insights into the overall effectiveness of the intervention across
-    different thresholds.
+    This metric summarizes the Number Needed to Treat (NNT) across decision
+    thresholds by taking the area under the NNT-vs-treated curve and dividing
+    by the treated span:
+        average NNT = AUC_NNT(treated) / (treated_max - treated_min).
 
-    Parameters:
+    Definitions
+    -----------
+    - treated(th) = TP(th) + FP(th) : number of patients that would be treated
+      at threshold th.
+    - PPV(th)     = TP(th) / (TP(th) + FP(th)) for treated(th) > 0; 0 otherwise.
+    - ARR(th)     = rho * PPV(th), where `rho` is the relative risk reduction
+      of the intervention (0 ≤ rho ≤ 1).
+    - NNT(th)     = 1 / ARR(th). If ARR(th) = 0, NNT(th) = ∞.
+
+    Numerical policy
+    ----------------
+    The `policy` argument controls how zero-benefit regions (ARR = 0 → NNT = ∞)
+    are handled when averaging:
+      * "finite" (default): Integrate only over thresholds where NNT is finite
+        (ARR > 0). If no finite region exists, returns np.inf.
+      * "propagate": Integrate over the full curve including ∞/NaN. Standard
+        numpy behavior applies (result may be inf or nan).
+      * "clip": Floor ARR at `epsilon` (thus clipping NNT from above at 1/epsilon)
+        before integrating. Ensures finiteness but introduces an explicit floor.
+
+    Parameters
     ----------
-    y_true : ndarray of shape (n_samples,)
+    y_true : array-like of shape (n_samples,)
         True binary labels.
-    y_score : ndarray of shape (n_samples,)
-        Predicted probabilities or decision function outputs.
+    y_score : array-like of shape (n_samples,)
+        Predicted scores (e.g., probabilities or decision function).
     rho : float
-        Effect size of the intervention, between 0 and 1.
-    pos_label : int, float, bool, or str, default=None
-        Label of the positive class.
-    sample_weight : ndarray of shape (n_samples,), default=None
-        Weights for samples.
-    min_treated : int, default=None
-        Minimum number of treated patients to consider in the curve.
-    max_treated : int, default=None
-        Maximum number of treated patients to consider in the curve.
+        Relative risk reduction (effect size) of the intervention in [0, 1].
+    pos_label : int, float, bool, or str, optional
+        Label of the positive class; forwarded to the internal confusion-matrix
+        curve routine.
+    sample_weight : array-like of shape (n_samples,), optional
+        Sample weights.
+    min_treated : int, optional
+        Minimum number of treated patients to include when forming the curve.
+        Defaults to 0 if not provided.
+    max_treated : int, optional
+        Maximum number of treated patients to include when forming the curve.
+        Defaults to n_samples if not provided.
+    policy : {"finite", "propagate", "clip"}, default="finite"
+        Handling of zero-benefit regions as described above.
+    epsilon : float, default=1e-12
+        ARR floor used only if `policy="clip"` (effective NNT ceiling is 1/epsilon).
 
-    Returns:
+    Returns
     -------
     float
-        Average height of the NNT vs. treated curve.
+        Average NNT over the selected domain.
+        Special cases:
+          - Returns `np.inf` if `policy="finite"` and no finite-NNT region exists.
+          - Returns `np.nan` if the treated span is degenerate
+            (treated_max == treated_min) or if the curve is empty.
+
+    Notes
+    -----
+    - The curve includes an anchor at treated = 0. Under this implementation the
+      anchor does not contribute to the integral unless it is part of the finite
+      region (policy-dependent).
+    - When reporting this metric, consider also reporting a separate coverage
+      measure (see `NNTvsTreated_coverage`) to indicate what fraction of the
+      treated range actually had finite NNT.
 
     Examples
     --------
-    >>> y_true = [0, 1, 0, 1]
+    >>> y_true  = [0, 1, 0, 1]
     >>> y_score = [0.1, 0.4, 0.35, 0.8]
     >>> rho = 0.5
-    >>> average_NNTvsTreated(y_true, y_score, rho)
+    >>> round(average_NNTvsTreated(y_true, y_score, rho, policy="finite"), 3)
     2.25
-        
-    Notes
-    -----
-    ***
-
-    References
-    ----------
-    - Any relevant literature or studies.
+    >>> # Using a floor to avoid infinities:
+    >>> round(average_NNTvsTreated(y_true, y_score, rho, policy="clip", epsilon=1e-6), 3)
+    2.25
     """
     
-    treated, NNT, _ = NNTvsTreated_curve(y_true, y_score, rho, pos_label=pos_label, sample_weight=sample_weight, min_treated=min_treated, max_treated=max_treated)
+    treated, NNT, _ = NNTvsTreated_curve(
+        y_true, y_score, rho,
+        pos_label=pos_label,
+        sample_weight=sample_weight,
+        min_treated=min_treated,
+        max_treated=max_treated
+    )
 
-    # Trapz calculates the area under the curve, here representing the total NNT
+    if treated.size == 0:
+        return np.nan
+
+    span = treated.max() - treated.min()
+    if span <= 0:
+        # Degenerate domain: either a single threshold or no variation
+        # With no treated variation, “average height” is undefined.
+        return np.nan
+
+    if policy == "finite":
+        m = np.isfinite(NNT) & (NNT > 0)
+        if not np.any(m):
+            return np.inf
+        auc = np.trapz(NNT[m], treated[m])
+        return auc / (treated[m].max() - treated[m].min())
+
+    if policy == "clip":
+        # Floor ARR via epsilon by clipping NNT from above
+        # NNT = 1/ARR -> clip ARR by epsilon == clip NNT by 1/epsilon
+        NNT = np.minimum(NNT, 1.0 / epsilon)
+
+    # "propagate" or post-clip: may still yield inf/nan if present
     auc = np.trapz(NNT, treated)
+    return auc / span
+    
+    
+def NNTvsTreated_coverage(
+    y_true,
+    y_score,
+    rho,
+    pos_label=None,
+    sample_weight=None,
+    min_treated=None,
+    max_treated=None
+) -> float:
+    """
+    Fraction of the treated span where NNT is finite (ARR > 0).
 
-    # Calculate the average height of the curve
-    average_height = auc / (treated.max() - treated.min())
+    This scalar complements `average_NNTvsTreated` by indicating how much of the
+    treated range exhibits any expected benefit (finite NNT). It is defined as:
 
-    return average_height
+        coverage = (treated_max_finite - treated_min_finite) / (treated_max - treated_min)
+
+    where “finite” refers to thresholds with ARR > 0 (i.e., NNT finite).
+
+    Parameters
+    ----------
+    y_true : array-like of shape (n_samples,)
+        True binary labels.
+    y_score : array-like of shape (n_samples,)
+        Predicted scores (e.g., probabilities or decision function).
+    rho : float
+        Relative risk reduction (effect size) of the intervention in [0, 1].
+    pos_label : int, float, bool, or str, optional
+        Label of the positive class.
+    sample_weight : array-like of shape (n_samples,), optional
+        Sample weights.
+    min_treated : int, optional
+        Minimum number of treated patients to include when forming the curve.
+    max_treated : int, optional
+        Maximum number of treated patients to include when forming the curve.
+
+    Returns
+    -------
+    float
+        Coverage in [0, 1].
+        Special cases:
+          - Returns 0.0 if the curve is empty or the treated span is degenerate.
+          - Returns 0.0 if no finite-NNT region exists.
+
+    Notes
+    -----
+    - This implementation measures the span between the smallest and largest
+      treated values that have finite NNT and normalizes by the total treated
+      span. If finite-NNT regions are *disjoint*, this “convex-hull” approach
+      can over-estimate the fraction. If you need exact set-measure coverage,
+      compute the normalized sum of finite sub-interval lengths (e.g., integrate
+      an indicator over `treated`) instead.
+
+    Examples
+    --------
+    TODO: check this
+    >>> y_true  = [0, 1, 0, 1]
+    >>> y_score = [0.1, 0.4, 0.35, 0.8]
+    >>> rho = 0.5
+    >>> 0.0 <= NNTvsTreated_coverage(y_true, y_score, rho) <= 1.0
+    True
+    """
+    treated, NNT, _ = NNTvsTreated_curve(
+        y_true, y_score, rho,
+        pos_label=pos_label,
+        sample_weight=sample_weight,
+        min_treated=min_treated,
+        max_treated=max_treated
+    )
+
+    if treated.size == 0:
+        return 0.0
+
+    span = treated.max() - treated.min()
+    if span <= 0:
+        return 0.0
+
+    m = np.isfinite(NNT) & (NNT > 0)
+    if not np.any(m):
+        return 0.0
+
+    covered = treated[m].max() - treated[m].min()
+    return float(covered / span)
 
 
 def net_benefit(y_true, y_score, decision_threshold=0.5):

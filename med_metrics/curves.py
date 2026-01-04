@@ -14,8 +14,17 @@ from .utils import _cm_curve, _check_min_max
 
 
 
-def NNTvsTreated_curve(y_true, y_score, rho, pos_label=None, sample_weight=None,
-                       min_treated=None, max_treated=None):
+def NNTvsTreated_curve(
+    y_true,
+    y_score,
+    rho,
+    pos_label=None,
+    sample_weight=None,
+    min_treated=None,
+    max_treated=None,
+    *,
+    warn: str = "auto"   # {"auto", "never", "always"}
+):
     """
     Calculate the Number Needed to Treat (NNT) vs. treated curve at various
     decision thresholds.
@@ -23,6 +32,19 @@ def NNTvsTreated_curve(y_true, y_score, rho, pos_label=None, sample_weight=None,
     This function computes NNT, an important metric in medical decision making,
     across different thresholds of a binary classifier, allowing for analysis
     within a specified range of treated patients.
+    
+    Semantics:
+      - treated(th) = TP + FP
+      - PPV(th)     = TP / (TP + FP) for treated>0; 0 otherwise
+      - ARR(th)     = rho * PPV(th)
+      - NNT(th)     = 1 / ARR(th); if ARR==0 -> NNT = ∞
+
+    Warning behavior (param `warn`):
+      - "auto"  (default): suppress NumPy runtime divides, but issue a single
+        warning if the in-range curve has **no finite NNT** at all (i.e., ARR==0
+        everywhere across [min_treated, max_treated]).
+      - "never": never warn.
+      - "always": always emit a one-line summary warning.
 
     Parameters:
     ----------
@@ -68,31 +90,44 @@ def NNTvsTreated_curve(y_true, y_score, rho, pos_label=None, sample_weight=None,
     """
     
     n = len(y_true)
-    min_treated = min_treated or 0
-    max_treated = max_treated or n
-    
+    min_treated = 0 if min_treated is None else min_treated
+    max_treated = n if max_treated is None else max_treated
     _check_min_max(min_treated, 'min_treated', max_treated, 'max_treated', lb=0, ub=n)
-    
-    fps, tps, tns, fns, thresholds = _cm_curve(y_true, y_score, pos_label=pos_label, sample_weight=sample_weight)
-    
-    # Calculate absolute risk reduction for each threshold
-    absolute_risk_reduction = rho * tps/(tps + fps)
-    # Number Needed to Treat: number of patients to treat to prevent one additional bad outcome
-    NNT = 1 / (absolute_risk_reduction)
-    # Total number of patients treated at each threshold
+
+    fps, tps, tns, fns, thresholds = _cm_curve(
+        y_true, y_score, pos_label=pos_label, sample_weight=sample_weight
+    )
+
     treated = tps + fps
 
-    # Prepending 0 to arrays to include the starting point of the curve
-    NNT = np.insert(NNT, 0, 0)
-    treated = np.insert(treated, 0, 0)
+    # Robust divisions with warnings suppressed locally
+    with np.errstate(divide='ignore', invalid='ignore'):
+        ppv = np.where(treated > 0, tps / treated, 0.0)
+        arr = rho * ppv
+        # NNT = 1/ARR; where ARR==0 -> inf (semantically correct)
+        NNT = np.where(arr > 0, 1.0 / arr, np.inf)
+
+    # Prepend anchor at treated=0 (NNT undefined -> use ∞ to avoid bias)
+    treated = np.insert(treated, 0, 0.0)
+    NNT = np.insert(NNT, 0, np.inf)
     thresholds = np.insert(thresholds, 0, np.inf)
-    
-    # Find in range (valid) elements
-    valid_indices = (min_treated <= treated) & (treated <= max_treated)
-    treated = treated[valid_indices]
-    NNT = NNT[valid_indices]
-    thresholds = thresholds[valid_indices]
-    
+
+    # Restrict to requested treated range
+    in_range = (min_treated <= treated) & (treated <= max_treated)
+    treated = treated[in_range]
+    NNT = NNT[in_range]
+    thresholds = thresholds[in_range]
+
+    # Optional human-friendly warning (single line), not NumPy spam
+    if warn != "never":
+        # "finite NNT exists" means any ARR>0 → any NNT finite
+        has_finite = np.any(np.isfinite(NNT) & (NNT > 0))
+        if warn == "always" or (warn == "auto" and not has_finite):
+            warnings.warn(
+                "NNTvsTreated_curve: no finite NNT within the selected treated range "
+                f"[{min_treated}, {max_treated}]; ARR==0 throughout. Returning ∞ values.",
+                RuntimeWarning
+            )
 
     return treated, NNT, thresholds
 

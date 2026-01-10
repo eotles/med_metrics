@@ -1,192 +1,206 @@
-# Med Metrics: Advanced Medical Machine Learning Evaluation Toolkit
+# med_metrics
 
-## Overview
+`med_metrics` is a Python package for evaluating machine learning models in medicine, with an emphasis on (1) robust uncertainty via bootstrapping, (2) subgroup and fairness-style evaluation, and (3) clinically oriented decision metrics (for example Number Needed to Treat, and net benefit style curves).
 
-`med_metrics` is a Python package tailored for the evaluation of machine learning models in medical contexts. This package offers a unique suite of metrics, compatibility assessments, and bootstrapping techniques specifically designed to assess the performance and impact of models in healthcare.
-
-## Key Features
-- Specialized Medical Metrics: Functions for advanced metrics such as Number Needed to Treat (NNT) across decision thresholds, average height of NNT vs. treated curves, and net benefit analysis.
-- Curves for Evaluation: Generate various curves like NNT vs. treated, and net benefit curves, essential for visual and quantitative model analysis.
-- Compatibility Metrics: Evaluate prediction compatibility across model updates or between different models, crucial for maintaining trust in evolving medical ML applications.
-- Bootstrap Evaluation: Robust tools for performing bootstrap evaluations, enabling detailed performance comparisons across different machine learning models.
-
-
-## Features
-
-- Specialized Medical Metrics: Calculate metrics like Number Needed to Treat (NNT) across decision thresholds, average height of NNT vs. treated curves, and net benefit analysis.
-- Compatibility Assessment: Evaluate how predictions change with model updates or across different models using functions like backwards_trust_compatibility.
-- Utility Functions: A range of utility functions for generating classification and confusion matrix curves, and handling various inputs for metrics calculation.
+PyPI name: `med-metrics`  
+Import name: `med_metrics`
 
 ## Installation
 
-To install med_metrics, run the following command:
-``` bash
+```bash
+pip install med-metrics==0.0.6
+# or
 pip install med-metrics
 ```
 
-## Dependencies
-
-med_metrics requires the following libraries:
-
-- numpy
-- scikit-learn
-- scipy
-
-These dependencies are automatically installed with med_metrics.
-
-## Usage
-
-The med_metrics package can be used to perform bootstrap evaluations for model comparison. Below is an example showcasing how to compare two machine learning models using the package's bootstrapping functionality.
-
-### Model Comparison 
-This example demonstrates a bootstrap analysis to compare two models using `roc_auc_score` and `average_NNTvsTreated` metrics, as well as generating `roc_curve` and `NNT vs. Number Treated curves`.
+## Quick start (bootstrapped AUROC)
 
 ```python
 import numpy as np
-from med_metrics.bootstrap import bootstrap_evaluation, summarize_bootstrap_results
-from med_metrics.plotting import plot_bootstrap_curve
-from sklearn.metrics import roc_auc_score, roc_curve
-from med_metrics.metrics import average_NNTvsTreated
-from med_metrics.curves import NNTvsTreated_curve
-import pandas as pd
+from sklearn.metrics import roc_auc_score
+from med_metrics.bootstrap import bootstrap_evaluation
 
-# Simulation of ground truth and model predictions
-n = 1000
 rng = np.random.default_rng(42)
-p = rng.uniform(0, 1, n)
-q = rng.uniform(0, 1, n)
-y_true = rng.binomial(1, p)
 
-# Bootstrap parameters
-y_scores = {'model_0': p * q, 'model_1': p}
-metric_funcs = {'roc_auc_score': roc_auc_score, 'average_NNTvsTreated': average_NNTvsTreated}
-metric_funcs_kwargs = {'average_NNTvsTreated': {'rho': 0.4}}
-curve_funcs = {'roc_curve': roc_curve, 'NNTvsT': NNTvsTreated_curve}
-curve_funcs_kwargs = {'NNTvsT': {'rho': 0.4}}
+n = 1000
+y_true = rng.integers(0, 2, size=n)
+y_score = rng.random(size=n)
 
-# Perform the bootstrap analysis
-bootstrapped_results = bootstrap_evaluation(
+results = bootstrap_evaluation(
     y_true=y_true,
-    y_scores=y_scores,
-    metric_funcs=metric_funcs,
-    curve_funcs=curve_funcs,
-    n_bootstraps=1000,
-    random_state=42,
-    metric_funcs_kwargs=metric_funcs_kwargs,
-    curve_funcs_kwargs=curve_funcs_kwargs
+    y_score=y_score,
+    metric_func=roc_auc_score,
+    n_iterations=1000,
+    alpha=0.05,
 )
 
-# Summarize the bootstrap results
-mf_summary_results, _ = summarize_bootstrap_results(bootstrapped_results)
-display(pd.DataFrame(mf_summary_results))
-
-# Plot the bootstrap analysis results
-_ = plot_bootstrap_curve(bootstrapped_results, 'average_NNTvsTreated', 'NNTvsT',
-                         xlabel='Number Treated', ylabel='NNT',
-                         title='NNT vs. Number Treated', legend_title='Mean NNT (95% CI)')
+print(f"AUROC mean: {results['mean']:.3f}")
+print(f"95% CI: ({results['ci_lower']:.3f}, {results['ci_upper']:.3f})")
 ```
 
-The above code performs the bootstrap analysis and generates a summary table, as well as a plot for NNT vs. Number Treated. The results are shown below:
+## More metrics (AUPRC, accuracy)
 
-Bootstrap Summary Table
-```scss
-Copy code
-roc_auc_score    average_NNTvsTreated
-model_0  0.709 (0.676, 0.741)  3.844 (3.624, 4.04)
-model_1  0.818 (0.794, 0.844)  3.539 (3.366, 3.698)
+```python
+from sklearn.metrics import average_precision_score, accuracy_score
+
+ap_results = bootstrap_evaluation(y_true, y_score, metric_func=average_precision_score)
+acc_results = bootstrap_evaluation(
+    y_true,
+    y_score,
+    metric_func=accuracy_score,
+    metric_func_kwargs={"threshold": 0.5},
+)
+
+print(ap_results)
+print(acc_results)
 ```
 
-Plot: NNT vs. Number Treated
-![NNT vs. Number Treated Plot](docs/images/example_nnt_vs_treated_plot.png)
+## Clinical decision metrics (NNT vs treated, average NNT)
 
+`med_metrics` supports Number Needed to Treat (NNT) style analysis using a relative risk reduction parameter `rho` (0 to 1).
 
+Important behavior in v0.0.6:
+- Regions with no absolute risk reduction are represented as NNT = ∞ (ARR = 0 → NNT = ∞).
+- `average_NNTvsTreated` supports a `policy` argument controlling how ∞ regions affect the average.
 
-## Modules Overview
-- bootstrap.py: Perform bootstrap evaluations and analyses.
-- compatibility_metrics.py: Functions for assessing prediction compatibility.
-- curves.py: Generate various evaluative curves.
-- metrics.py: Core module for specialized medical metrics.
+```python
+from med_metrics.curves import NNTvsTreated_curve
+from med_metrics.metrics import average_NNTvsTreated
 
-## Contributing
+rho = 0.4
 
-Contributions to med_metrics are welcome! Please read our contributing guidelines for more information on how to submit pull requests, report issues, or suggest enhancements.
+treated, nnt, thresholds = NNTvsTreated_curve(
+    y_true=y_true,
+    y_score=y_score,
+    rho=rho,
+    min_treated=0,
+    max_treated=len(y_true),
+    warn="auto",  # "auto" (default), "always", or "never"
+)
 
+avg_nnt = average_NNTvsTreated(
+    y_true=y_true,
+    y_score=y_score,
+    rho=rho,
+    min_treated=0,
+    max_treated=len(y_true),
+    policy="finite",   # "finite" (default), "propagate", or "clip"
+    # epsilon=1e-12,    # used only if policy == "clip"
+)
 
-### Development environment (Docker)
-
-This repo includes a ready-to-run JupyterLab dev environment using Docker.
-It installs runtime dependencies with mamba (Conda) and automatically trusts notebooks at startup.
-
-#### Prereqs
-Docker Desktop (or Docker Engine)
-Docker Compose v2 (docker compose ...)
-
-#### One-time build & launch
-
-```
-# from the repo root
-
-docker compose up --build
-```
-
-JupyterLab will start and print a URL with a token, e.g.:
-```
-http://127.0.0.1:8888/lab?token=XXXXXXXXXXXXXXXX
-```
-Open that URL in your browser.
-(On macOS you can also: open 'http://127.0.0.1:8888/lab?token=...')
-
-What this does
-* Builds from jupyter/base-notebook:python-3.11.
-* Installs Python deps from requirements.txt using mamba.
-* Mounts the repo to /work (your edits persist on the host).
-* Runs /usr/local/bin/start-jupyter which:
-    * trusts all notebooks under notebooks/,
-    * starts JupyterLab on port 8888,
-    * serves the repo root (/work) so you can edit code and notebooks together.
-    
-#### Day-to-day use (no rebuild needed)
-```
-docker compose up
-```
-* Code edits in med_metrics/ are live (bind mount).
-* Rebuild only when changing requirements.txt or the Dockerfile.
-
-#### Changing dependencies
-* Edit requirements.txt.
-* Rebuild:
-```
-docker compose up --build
+print("Average NNT:", avg_nnt)
 ```
 
-### Verify you’re using the local package
-In a notebook:
-```
-import med_metrics, sys
-print("med_metrics from:", med_metrics.__file__)
-print("PYTHONPATH head:", sys.path[:3])
-```
-You should see a path under ```/work/med_metrics/...``` confirming imports come from your local source tree (```ENV PYTHONPATH=/work``` is set in the Dockerfile).
+## Subgroup and fairness-style evaluation
 
-#### Stopping / cleanup
-* Stop: ```Ctrl+C``` in the terminal running compose.
-* Optional cleanup:
-```
-docker compose down
-# or to remove local image & volumes:
-docker compose down --rmi local -v --remove-orphans
+### Binary fairness evaluation across subgroups
+
+```python
+import pandas as pd
+from med_metrics.group_evaluation import binary_fairness_evaluation
+
+subgroups = pd.DataFrame({
+    "sex": rng.choice(["F", "M"], size=n),
+    "age_group": rng.choice(["<50", "50+"], size=n),
+})
+
+results = binary_fairness_evaluation(
+    y_true=y_true,
+    y_score=y_score,
+    subgroups=subgroups,
+    threshold=0.5,
+)
+
+print(results)
 ```
 
-#### Troubleshooting
-Shell rejects the URL: Some shells interpret ?token=.... Copy/paste the URL into the browser, or quote it:
-```open 'http://127.0.0.1:8888/lab?token=...'```
-Port busy: Change the published port in docker-compose.yml:
+### Subgroup evaluation for multiple models
+
+```python
+from med_metrics.group_evaluation import subgroup_evaluation
+
+y_scores_dict = {
+    "model_a": y_score,
+    "model_b": np.clip(y_score + rng.normal(0, 0.05, size=n), 0, 1),
+}
+
+subgroup_results = subgroup_evaluation(
+    y_true=y_true,
+    y_scores=y_scores_dict,
+    subgroups=subgroups,
+    metric_func=roc_auc_score,
+)
+
+print(subgroup_results)
 ```
-ports:
-  - "8899:8888"
+
+### Binary grouped evaluation (metrics per subgroup)
+
+```python
+from med_metrics.group_evaluation import binary_grouped_evaluation
+
+grouped_results = binary_grouped_evaluation(
+    y_true=y_true,
+    y_score=y_score,
+    group=subgroups["sex"],
+    threshold=0.5,
+)
+
+print(grouped_results)
 ```
-Then open ```http://127.0.0.1:8899/lab?token=...```
-New packages not found: You likely changed ```requirements.txt``` but didn’t rebuild—run ```docker compose up --build```.
+
+## Confusion matrices
+
+```python
+from med_metrics.utils import confusion_matrix_df
+
+cm = confusion_matrix_df(y_true, y_score, threshold=0.5)
+print(cm)
+```
+
+## Notebooks (recommended for end-to-end examples)
+
+See the `notebooks/` directory for fuller workflows, including:
+- `example_usage.ipynb`
+- `example_usage_labels_subgroups.ipynb`
+- `extended_example.ipynb`
+
+## Development
+
+### Docker workflow (recommended)
+
+```bash
+docker-compose up --build
+```
+
+Then open JupyterLab at:
+
+- http://localhost:8888
+
+### Local (conda)
+
+```bash
+conda env create -f requirements.txt
+conda activate med_metrics
+```
+
+Run tests:
+
+```bash
+pytest
+```
+
+## Version notes (0.0.6)
+
+- New: multi-outcome and subgroup evaluation workflows.
+- Improved: NNT metrics now explicitly treat ARR=0 as NNT=∞ and warn when no finite NNT exists.
+- Added: `policy` and `warn` parameters for better numerical handling.
+- Added: `example_usage_labels_subgroups.ipynb` notebook.
+- Added: Docker and ReadTheDocs scaffolding.
+
+## Citation
+
+If you use `med_metrics` in academic work, please cite the repository (and add a DOI or Zenodo badge if you mint one for releases).
 
 ## License
 
@@ -195,3 +209,4 @@ med_metrics is released under a MIT License.
 ## Contact
 
 For questions or feedback, please contact Erkin Ötleş at hi@eotles.com .
+

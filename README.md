@@ -1,194 +1,275 @@
 # med_metrics
 
-`med_metrics` is a Python package for evaluating machine learning models in medicine, with an emphasis on (1) robust uncertainty via bootstrapping, (2) subgroup and fairness-style evaluation, and (3) clinically oriented decision metrics (for example Number Needed to Treat, and net benefit style curves).
+`med_metrics` is a small Python package for **bootstrapped evaluation of predictive models**, including:
+- point estimates plus bootstrap distributions and confidence intervals for metrics
+- support for **multiple labels** (multi-task style evaluation)
+- support for **subgroup evaluation** via a `group_by` dictionary
+- optional **curve-style outputs** (for example ROC curves, decision curves)
+- optional **model compatibility** metrics (pairwise comparisons between models)
 
-PyPI name: `med-metrics`  
-Import name: `med_metrics`
+The public API in this README is based on the package’s example notebook in `example_usage_labels_subgroups.pdf`.
 
 ## Installation
 
 ```bash
-pip install med-metrics==0.0.6
-# or
-pip install med-metrics
+pip install -U "scikit-learn>=1.4"
+pip install -U med-metrics
 ```
 
-## Quick start (bootstrapped AUROC)
+Import name is `med_metrics`:
+
+```python
+import med_metrics
+```
+
+## Quickstart
+
+### Bootstrapped evaluation (single label)
 
 ```python
 import numpy as np
-from sklearn.metrics import roc_auc_score
-from med_metrics.bootstrap import bootstrap_evaluation
+from sklearn.metrics import roc_auc_score, roc_curve
 
-rng = np.random.default_rng(42)
+from med_metrics.bootstrap import (
+    bootstrap_evaluation,
+    summarize_bootstrap_results,
+    make_summary_tables,
+)
 
-n = 1000
+# Example data
+rng = np.random.default_rng(0)
+n = 500
 y_true = rng.integers(0, 2, size=n)
-y_score = rng.random(size=n)
 
-results = bootstrap_evaluation(
-    y_true=y_true,
-    y_score=y_score,
-    metric_func=roc_auc_score,
-    n_iterations=1000,
-    alpha=0.05,
-)
-
-print(f"AUROC mean: {results['mean']:.3f}")
-print(f"95% CI: ({results['ci_lower']:.3f}, {results['ci_upper']:.3f})")
-```
-
-## More metrics (AUPRC, accuracy)
-
-```python
-from sklearn.metrics import average_precision_score, accuracy_score
-
-ap_results = bootstrap_evaluation(y_true, y_score, metric_func=average_precision_score)
-acc_results = bootstrap_evaluation(
-    y_true,
-    y_score,
-    metric_func=accuracy_score,
-    metric_func_kwargs={"threshold": 0.5},
-)
-
-print(ap_results)
-print(acc_results)
-```
-
-## Clinical decision metrics (NNT vs treated, average NNT)
-
-`med_metrics` supports Number Needed to Treat (NNT) style analysis using a relative risk reduction parameter `rho` (0 to 1).
-
-Important behavior in v0.0.6:
-- Regions with no absolute risk reduction are represented as NNT = ∞ (ARR = 0 → NNT = ∞).
-- `average_NNTvsTreated` supports a `policy` argument controlling how ∞ regions affect the average.
-
-```python
-from med_metrics.curves import NNTvsTreated_curve
-from med_metrics.metrics import average_NNTvsTreated
-
-rho = 0.4
-
-treated, nnt, thresholds = NNTvsTreated_curve(
-    y_true=y_true,
-    y_score=y_score,
-    rho=rho,
-    min_treated=0,
-    max_treated=len(y_true),
-    warn="auto",  # "auto" (default), "always", or "never"
-)
-
-avg_nnt = average_NNTvsTreated(
-    y_true=y_true,
-    y_score=y_score,
-    rho=rho,
-    min_treated=0,
-    max_treated=len(y_true),
-    policy="finite",   # "finite" (default), "propagate", or "clip"
-    # epsilon=1e-12,    # used only if policy == "clip"
-)
-
-print("Average NNT:", avg_nnt)
-```
-
-## Subgroup and fairness-style evaluation
-
-### Binary fairness evaluation across subgroups
-
-```python
-import pandas as pd
-from med_metrics.group_evaluation import binary_fairness_evaluation
-
-subgroups = pd.DataFrame({
-    "sex": rng.choice(["F", "M"], size=n),
-    "age_group": rng.choice(["<50", "50+"], size=n),
-})
-
-results = binary_fairness_evaluation(
-    y_true=y_true,
-    y_score=y_score,
-    subgroups=subgroups,
-    threshold=0.5,
-)
-
-print(results)
-```
-
-### Subgroup evaluation for multiple models
-
-```python
-from med_metrics.group_evaluation import subgroup_evaluation
-
-y_scores_dict = {
-    "model_a": y_score,
-    "model_b": np.clip(y_score + rng.normal(0, 0.05, size=n), 0, 1),
+# Two example models
+y_scores = {
+    "model_a": rng.random(n),
+    "model_b": rng.random(n),
 }
 
-subgroup_results = subgroup_evaluation(
+metric_funcs = {
+    "roc_auc_score": roc_auc_score,
+}
+
+curve_funcs = {
+    "roc_curve": roc_curve,
+}
+
+boot = bootstrap_evaluation(
     y_true=y_true,
-    y_scores=y_scores_dict,
-    subgroups=subgroups,
-    metric_func=roc_auc_score,
+    y_scores=y_scores,
+    metric_funcs=metric_funcs,
+    curve_funcs=curve_funcs,
+    n_bootstraps=1000,
+    random_state=42,
 )
 
-print(subgroup_results)
+# Summaries as dicts / dataframes
+summary = summarize_bootstrap_results(boot)
+tables = make_summary_tables(boot)
 ```
 
-### Binary grouped evaluation (metrics per subgroup)
+### Multiple labels and subgroup evaluation
+
+For multi-label evaluation, pass `y_true` as a dict keyed by label, and pass `group_by` as a dict keyed by subgroup name.
 
 ```python
-from med_metrics.group_evaluation import binary_grouped_evaluation
+from sklearn.metrics import roc_auc_score, roc_curve
 
-grouped_results = binary_grouped_evaluation(
-    y_true=y_true,
-    y_score=y_score,
-    group=subgroups["sex"],
-    threshold=0.5,
+from med_metrics.bootstrap import (
+    bootstrap_evaluation,
+    make_summary_tables,
 )
 
-print(grouped_results)
+# Labels (each value is an array-like of length n)
+y_true = {
+    "mortality": y_mortality,
+    "icu_admit": y_icu,
+    "sepsis": y_sepsis,
+}
+
+# Models (each value is an array-like of length n)
+y_scores = {
+    "model_0": y_score_0,
+    "model_1": y_score_1,
+    "model_2": y_score_2,
+}
+
+# Subgroups (each value is an array-like of length n)
+group_by = {
+    "sex": sex,   # example categorical
+    "age": age,   # example numeric (will appear as binned ranges in outputs)
+}
+
+metric_funcs = {
+    "roc_auc_score": roc_auc_score,
+}
+
+curve_funcs = {
+    "roc_curve": roc_curve,
+}
+
+boot = bootstrap_evaluation(
+    y_true=y_true,
+    y_scores=y_scores,
+    group_by=group_by,
+    metric_funcs=metric_funcs,
+    curve_funcs=curve_funcs,
+    n_bootstraps=1000,
+    random_state=42,
+)
+
+tables = make_summary_tables(boot)
 ```
 
-## Confusion matrices
+## Decision-focused curves (NNT vs Treated, Net Benefit)
+
+`med_metrics` includes helpers to compute decision curves and summary statistics:
 
 ```python
-from med_metrics.utils import confusion_matrix_df
+from med_metrics.curves import (
+    NNTvsTreated_curve,
+    average_NNTvsTreated,
+    net_benefit_curve,
+    average_net_benefit,
+)
 
-cm = confusion_matrix_df(y_true, y_score, threshold=0.5)
-print(cm)
+curve_funcs = {
+    "roc_curve": roc_curve,
+    "NNTvsT": NNTvsTreated_curve,
+    "net_benefit": net_benefit_curve,
+}
+
+metric_funcs = {
+    "roc_auc_score": roc_auc_score,
+    "average_NNTvsTreated": average_NNTvsTreated,
+    "average_net_benefit": average_net_benefit,
+}
 ```
 
-## Notebooks (recommended for end-to-end examples)
+You can pass these into `bootstrap_evaluation(...)` via `curve_funcs` and `metric_funcs`.
 
-See the `notebooks/` directory for fuller workflows, including:
-- `example_usage.ipynb`
-- `example_usage_labels_subgroups.ipynb`
-- `extended_example.ipynb`
+## Model compatibility metrics
 
-## Development
+If you want to compare models pairwise (for example, stability of relative ordering), you can provide compatibility metric functions:
 
-### Docker workflow (recommended)
+```python
+from med_metrics.compatibility_metrics import (
+    rank_based_compatibility,
+    backwards_trust_compatibility,
+    backwards_error_compatibility,
+)
 
-```bash
-docker-compose up --build
+compatibility_metric_funcs = {
+    "rank_based_compatibility": rank_based_compatibility,
+    # You can add these as needed:
+    # "backwards_trust_compatibility": backwards_trust_compatibility,
+    # "backwards_error_compatibility": backwards_error_compatibility,
+}
 ```
 
-Then open JupyterLab at:
+Then pass `compatibility_metric_funcs=...` to `bootstrap_evaluation(...)`.
 
-- http://localhost:8888
+## Label-to-label metrics (within a label)
 
-### Local (conda)
+For multi-label tasks, you can also compute metrics that compare labels to each other (for example, Jaccard, MCC) within each bootstrap sample.
 
-```bash
-conda env create -f requirements.txt
-conda activate med_metrics
+```python
+from med_metrics.label_metrics import mcc, jaccard
+
+label_metrics = {
+    "mcc": mcc,
+    "jaccard": jaccard,
+}
+
+boot = bootstrap_evaluation(
+    y_true=y_true,
+    y_scores=y_scores,
+    group_by=group_by,
+    metric_funcs=metric_funcs,
+    curve_funcs=curve_funcs,
+    label_metrics=label_metrics,
+    n_bootstraps=1000,
+    random_state=42,
+)
 ```
 
-Run tests:
+## Plotting: bootstrap curves and figures
 
-```bash
-pytest
+There are two plotting helpers demonstrated in the example notebook:
+
+- `plot_bootstrap_curve` for a single curve
+- `make_curve_figures` to generate a collection of figures (overall and subgroup panels, per label)
+
+```python
+from med_metrics.plotting import plot_bootstrap_curve, make_curve_figures
+
+curves = {
+    "roc_curve": {
+        "metric": "roc_auc_score",
+        "xlabel": "False Positive Rate",
+        "ylabel": "True Positive Rate",
+        "title": "ROC",
+        "confidence_level": 0.95,
+        "method": "basic",  # or "percentile"
+        "legend_title": "AUROC",
+    },
+    "NNTvsT": {
+        "metric": "average_NNTvsTreated",
+        "xlabel": "Treatment Threshold",
+        "ylabel": "Avg NNT vs Treated",
+        "title": "NNT vs Treated",
+        "confidence_level": 0.95,
+        "method": "percentile",
+        "legend_title": "Avg NNTvsT",
+    },
+}
+
+figs = make_curve_figures(
+    boot,
+    curves,
+    y_score_names=["model_0", "model_1"],  # or None for all models present
+    include_overall=True,
+    include_groups=True,
+    label_order=["mortality", "icu_admit"],  # optional display order
+    group_order=["sex", "age"],
+    show=True,
+    figsize=(6, 6),
+    rep_line_alpha=0.02,
+    line_alpha=1.0,
+    max_rep_lines_per_model=200,
+    legend_title_ci_flag=True,
+    save_dir="figs",       # optional: write images to ./figs
+    save_format="png",
+    dpi=150,
+)
+
+# Examples of accessing figures from the nested return dict:
+fig_overall_roc_mort = figs["mortality"]["overall"]["roc_curve"]
+fig_panel_age_roc_mort = figs["mortality"]["groups"]["age"]["roc_curve"]
 ```
+
+## Output structure
+
+`bootstrap_evaluation(...)` returns a nested dictionary. In the example notebook, the top-level keys include:
+- one key per label (for multi-label input)
+- `_metadata` with run configuration and bookkeeping
+
+Each label entry includes (when requested) original (non-bootstrapped) values and bootstrap replication arrays for:
+- metrics
+- curves
+- compatibility metrics
+- label-to-label metrics
+
+When `group_by` is provided, results are also organized under group names and group levels.
+
+## Contributing
+
+Issues and PRs are welcome. If you are adding metrics or curve functions, it helps to also add a small example and a test.
+
+## License
+
+See the repository for licensing details.
 
 ## Version notes (0.0.6)
 
@@ -209,4 +290,3 @@ med_metrics is released under a MIT License.
 ## Contact
 
 For questions or feedback, please contact Erkin Ötleş at hi@eotles.com .
-

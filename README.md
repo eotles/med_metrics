@@ -175,11 +175,11 @@ Then pass `compatibility_metric_funcs=...` to `bootstrap_evaluation(...)`.
 For multi-label tasks, you can also compute metrics that compare labels to each other (for example, Jaccard, MCC) within each bootstrap sample.
 
 ```python
-from med_metrics.label_metrics import mcc, jaccard
+from sklearn.metrics import jaccard_score, matthews_corrcoef
 
 label_metrics = {
-    "mcc": mcc,
-    "jaccard": jaccard,
+    "mcc": matthews_corrcoef,
+    "jaccard": jaccard_score,
 }
 
 boot = bootstrap_evaluation(
@@ -202,7 +202,7 @@ There are two plotting helpers demonstrated in the example notebook:
 - `make_curve_figures` to generate a collection of figures (overall and subgroup panels, per label)
 
 ```python
-from med_metrics.plotting import plot_bootstrap_curve, make_curve_figures
+from med_metrics.bootstrap import plot_bootstrap_curve, make_curve_figures
 
 curves = {
     "roc_curve": {

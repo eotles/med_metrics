@@ -1,5 +1,7 @@
 # med_metrics
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22761194.svg)](https://doi.org/10.5281/zenodo.22761194)
+
 `med_metrics` is a small Python package for **bootstrapped evaluation of predictive models**, including:
 - point estimates plus bootstrap distributions and confidence intervals for metrics
 - support for **multiple labels** (multi-task style evaluation)
@@ -281,7 +283,11 @@ See the repository for licensing details.
 
 ## Citation
 
-If you use `med_metrics` in academic work, please cite the repository (and add a DOI or Zenodo badge if you mint one for releases).
+If you use `med_metrics` in academic work, please cite the archived software release:
+
+> Ötleş E. *med_metrics* (Version 0.0.6) [Computer software]. Zenodo. 2026. doi:10.5281/zenodo.22761194.
+
+Citation metadata is also provided in [`CITATION.cff`](CITATION.cff), which GitHub can use to generate citation formats.
 
 ## License
 
